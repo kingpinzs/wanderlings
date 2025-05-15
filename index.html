@@ -670,21 +670,22 @@
         }
 
         function update(deltaTime) {
-            if (deltaTime <= 0 || deltaTime > 500) {
-                if (deltaTime <=0 && deltaTime !== 0) { 
-                    console.warn("Skipping update due to non-positive deltaTime:", deltaTime);
-                    return; 
+            let dt = deltaTime;
+            if (dt <= 0 || dt > 500) {
+                if (dt <=0 && dt !== 0) {
+                    console.warn("Skipping update due to non-positive deltaTime:", dt);
+                    return;
                 }
-                if (deltaTime > 500) {
-                    console.warn("Capping large deltaTime:", deltaTime);
-                    deltaTime = 500; 
+                if (dt > 500) {
+                    console.warn("Capping large deltaTime:", dt);
+                    dt = 500;
                 }
             }
             
             if (gamePaused || currentGameState !== GAME_STATE.PLAYING) return;
 
             const currentTime = performance.now();
-            gameTimeRemaining -= deltaTime;
+            gameTimeRemaining -= dt;
             if (gameTimeRemaining <= 0) {
                 gameTimeRemaining = 0;
                 endLevel(false);
@@ -692,7 +693,9 @@
             }
 
             // Use gameLevels from levels.js
-            if (gameLevels[currentLevelIndex] && gameLevels[currentLevelIndex].lemmingsToRelease && lemmingsOut < gameLevels[currentLevelIndex].lemmingsToRelease && currentTime - lastReleaseTime > (levelData.releaseRate || 1000)) {
+            if (gameLevels[currentLevelIndex] && gameLevels[currentLevelIndex].lemmingsToRelease && 
+                 lemmingsOut < gameLevels[currentLevelIndex].lemmingsToRelease && 
+                  currentTime - lastReleaseTime > (levelData.releaseRate || 1000)) {
                 const entryX = levelData.entryPoint.x * TILE_SIZE + (TILE_SIZE - LEMMING_WIDTH) / 2;
                 const entryY = levelData.entryPoint.y * TILE_SIZE;
                 lemmings.push(createLemming(entryX, entryY));
@@ -701,12 +704,12 @@
             }
 
             for (let i = lemmings.length - 1; i >= 0; i--) {
-                lemmings[i].update(deltaTime, levelData.map);
+                lemmings[i].update(dt, levelData.map);
             }
 
             for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update(deltaTime);
-                // console.log(`Particle ${i} life: ${particles[i].life.toFixed(2)}, deltaTime: ${deltaTime.toFixed(2)}`); // DEBUG: Particle life
+                particles[i].update(dt);
+                // console.log(`Particle ${i} life: ${particles[i].life.toFixed(2)}, deltaTime: ${dt.toFixed(2)}`); // DEBUG: Particle life
                 if (particles[i].life <= 0) {
                     // console.log(`Splicing particle ${i}`); // DEBUG: Particle splicing
                     particles.splice(i, 1);
@@ -763,8 +766,8 @@
             const scaleX = canvasDom.width / rect.width;
             const scaleY = canvasDom.height / rect.height;
             return {
-                x: (touchEvent.touches[0].clientX - rect.left) * scaleX,
-                y: (touchEvent.touches[0].clientY - rect.top) * scaleY
+                x: (touchEvent.touches ? touchEvent.touches[0].clientX : touchEvent.clientX) * scaleX - rect.left * scaleX,
+                y: (touchEvent.touches ? touchEvent.touches[0].clientY : touchEvent.clientY) * scaleY - rect.top * scaleY
             };
         }
         function handleCanvasTap(event) {
@@ -791,6 +794,7 @@
             if (!lemmingWasTapped) { highlightedLemming = null; lastInteractionLemming = null; }
         }
         canvas.addEventListener('touchstart', handleCanvasTap, { passive: false });
+        canvas.addEventListener('mousedown', handleCanvasTap);
         
         function setupSkillButtons() {
             uiControls.innerHTML = '';
