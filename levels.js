@@ -30,8 +30,8 @@ const gameLevels = [
         map: [
             //012345678901
             "111111111111", // 0
-            "100000000001", // 1
-            "1E111111111X1", // 2 (Lemmings walk on this solid line)
+            "1E00000000X1", // 1
+            "1111111111111", // 2 (Lemmings walk on this solid line)
             "111111111111", // 3
         ],
         availableSkills: {
