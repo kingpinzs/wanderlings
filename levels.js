@@ -644,6 +644,27 @@ const gameLevels = [
             'floater': 5, // In case of accidental long falls from building
         }
     },
+        {
+        name: "Level 16: Precision Bombing",
+        time: 180,
+        lemmingsToRelease: 10,
+        requiredToSave: 5,
+        releaseRate: 2000,
+        entryPoint: { x: 1, y: 1 },
+        exitPoint: { x: 18, y: 1 },
+        map: [
+            //01234567890123456789
+            "11111111111111111111", //0
+            "1E00111000111000110X1", //1 Requires precise bombing of '1's
+            "122211122211122211221", //2 Diggable underneath for safety/alternative
+            "11111111111111111111", //3
+        ],
+        availableSkills: {
+            'bomber': 4,  // Limited bombs
+            'blocker': 6, // To protect groups from blasts or guide them
+            'digger': 5,  // To make safe pits or alternative routes
+        }
+    },
     // Add more levels here, gradually introducing 'miner', 'basher', 'floater', 'bomber'
     // and combining them in interesting ways.
 ];
