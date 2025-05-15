@@ -25,8 +25,8 @@ const gameLevels = [
         lemmingsToRelease: 3,
         requiredToSave: 2,
         releaseRate: 3000,
-        entryPoint: { x: 1, y: 2 }, // Start on the ground
-        exitPoint: { x: 10, y: 2 },
+        entryPoint: { x: 1, y: 1 }, // Start on the ground
+        exitPoint: { x: 10, y: 1 },
         map: [
             //012345678901
             "111111111111", // 0
