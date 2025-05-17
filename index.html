@@ -576,6 +576,11 @@
             const currentTime = performance.now();
 
             gameTimeRemaining -= dt;
+
+            let activeLemmingsCount = 0;
+            for(const lem of lemmings) { if(!lem.isDead && !lem.isRescued) activeLemmingsCount++; }
+
+
             let levelShouldEnd = false;
             let playerWon = false;
 
