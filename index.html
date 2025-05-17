@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Pixel Pathfinders - Beta</title> <link rel="manifest" href="manifest.json">
+    <title>Pixel Pathfinders - Final</title>
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#222222">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -41,7 +42,13 @@
         // --- Global Variables & Constants ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        // ... (other global DOM element getters)
+        const gameContainer = document.getElementById('gameContainer');
+        const uiControls = document.getElementById('uiControls');
+        const lemmingsCountEl = document.getElementById('lemmingsCount');
+        const lemmingsSavedEl = document.getElementById('lemmingsSaved');
+        const timeLeftEl = document.getElementById('timeLeft');
+        const levelNameEl = document.getElementById('levelName');
+        const loadingScreenEl = document.getElementById('loadingScreen'); // Renamed to avoid conflict
 
         let gamePaused = false;
         let currentLevelIndex = 0;
@@ -79,42 +86,62 @@
         const LEMMING_WIDTH = SPRITE_PIXEL_WIDTH * PIXEL_SCALE;
         const LEMMING_HEIGHT = SPRITE_PIXEL_HEIGHT * PIXEL_SCALE;
 
-        const lemmingSprites = { /* ... same sprite data ... */ };
-         lemmingSprites.walking = [
+        const lemmingSprites = {
+            walking: [
                 ["0hhh0","0hsh0","0bkb0","bbbbb","bkbkb","0b0b0","0k0k0","00000"],
                 ["0hhh0","0hsh0","0bkb0","bbbbb","bkbkb","0b0b0","00k00","00000"],
                 ["0hhh0","0hsh0","0bkb0","bbbbb","bkbkb","0b0b0","k0k00","00000"],
                 ["0hhh0","0hsh0","0bkb0","bbbbb","bkbkb","0b0b0","00k00","00000"]
-            ];
-        lemmingSprites.falling = [["0hhh0","0hsh0","0bkb0","bbbbb","bkbkb","0b0b0","k000k","00000"]];
-        lemmingSprites.digger = [
+            ],
+            falling: [["0hhh0","0hsh0","0bkb0","bbbbb","bkbkb","0b0b0","k000k","00000"]],
+            digger: [
                 ["00000","0hhh0","0hsh0","0bkb0","bbbbb","btbtb","0bkb0","00k00"],
                 ["0hhh0","0hsh0","0bkb0","bbbbb","btbtb","0bkb0","00k00","00000"]
-            ];
-        // Add other skill sprites here as they are developed
-
+            ],
+             blocker: [ ["0hhh0","0hsh0","kbkbk","bbbbb","kbkbk","bbbbb","0k0k0","00000"] ],
+            builder: [ ["0hhh0","0hsh0","0bkb0","bbtbb","bkbkb","0b0b0","0k0k0","00000"], ["0hhh0","0hsh0","0bkb0","bbTbb","bkbkb","0b0b0","0k0k0","00000"]],
+            bomber: [ ["0hhh0","0hsh0","0bkb0","brrrb","bkbkb","0b0b0","0k0k0","00000"], ["0hhh0","0hsh0","0bkb0","b000b","bkbkb","0b0b0","0k0k0","00000"]],
+            miner: [ ["00t00","0hhh0","0hsh0","0bkb0","bbbbb","btbtb","0bkb0","00k00"] ],
+            basher: [ ["0hhh0","0hsh0","0bkb0","bbtbb","bkbkb","0b0b0","0k0k0","00000"] ],
+            floater: [ ["0ppp0","ppppp","0hhh0","0hsh0","0bkb0","bbbbb","0b0b0","0k0k0"] ]
+        };
 
         const GAME_STATE = { LOADING: 'loading', MENU: 'menu', PLAYING: 'playing', LEVEL_COMPLETE: 'level_complete', GAME_OVER: 'game_over'};
         let currentGameState = GAME_STATE.LOADING;
 
         // --- Utility Functions ---
-        function getTileAt(x, y, mapData) { /* ... same ... */ }
-        function setTileAt(pixelX, pixelY, newTileChar, mapData) { /* ... same ... */ }
+        function getTileAt(x, y, mapData) {
+            const tileX = Math.floor(x / TILE_SIZE);
+            const tileY = Math.floor(y / TILE_SIZE);
+            if (mapData && mapData[tileY] && mapData[tileY][tileX] !== undefined) {
+                return mapData[tileY][tileX];
+            }
+            return '1';
+        }
+
+        function setTileAt(pixelX, pixelY, newTileChar, mapData) {
+            const tileX = Math.floor(pixelX / TILE_SIZE);
+            const tileY = Math.floor(pixelY / TILE_SIZE);
+            if (mapData && mapData[tileY] && mapData[tileY][tileX] !== undefined) {
+                let rowArray = mapData[tileY].split('');
+                rowArray[tileX] = newTileChar;
+                mapData[tileY] = rowArray.join('');
+                return true;
+            }
+            return false;
+        }
 
         function createDigParticle(x, y) {
-            // Angle: Mostly up, with slight side deviation. -Math.PI / 2 is straight up.
-            // Let's aim for a 30-degree cone upwards (15 degrees to each side of vertical)
-            const baseAngle = -Math.PI / 2; // Straight up
-            const spread = Math.PI / 12; // +/- 15 degrees (Math.PI / 6 would be 30 degrees total spread)
+            const baseAngle = -Math.PI / 2; 
+            const spread = Math.PI / 12; 
             const angle = baseAngle + (Math.random() * spread * 2) - spread;
-
-            const speed = Math.random() * 0.5 + 0.2; // Reduced speed for shorter travel
-            const life = Math.random() * 250 + 150; // Reduced life for shorter travel
+            const speed = Math.random() * 0.5 + 0.2; 
+            const life = Math.random() * 250 + 150; 
             return {
                 x: x, y: y,
                 dx: Math.cos(angle) * speed,
-                dy: Math.sin(angle) * speed, // dy will be negative (upwards)
-                size: Math.random() * 1.5 + 1, // Smaller particles
+                dy: Math.sin(angle) * speed, 
+                size: Math.random() * 1.5 + 1, 
                 colorHue: 25 + Math.random() * 15,
                 saturation: 50 + Math.random() * 20,
                 lightnessBase: 30 + Math.random() * 15,
@@ -122,23 +149,51 @@
                 update: function(deltaTime) {
                     this.x += this.dx * (deltaTime / 16.67);
                     this.y += this.dy * (deltaTime / 16.67);
-                    this.dy += GRAVITY * 0.1; // Particles still affected by some gravity
+                    this.dy += GRAVITY * 0.1; 
                     this.life -= deltaTime;
                 },
-                draw: function(ctx) { /* ... same draw logic ... */ }
+                draw: function(ctx) {
+                    if (this.life <= 0) return;
+                    const alpha = Math.max(0, this.life / this.initialLife) * 0.8;
+                    const lightness = this.lightnessBase * (0.5 + (this.life / this.initialLife) * 0.5);
+                    ctx.fillStyle = `hsla(${this.colorHue}, ${this.saturation}%, ${lightness}%, ${alpha})`;
+                    ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+                }
             };
         }
-         // Utility function to draw particles (from createDigParticle)
-        createDigParticle(0,0).draw = function(ctx) { // Attach to prototype for brevity
-            if (this.life <= 0) return;
-            const alpha = Math.max(0, this.life / this.initialLife) * 0.8;
-            const lightness = this.lightnessBase * (0.5 + (this.life / this.initialLife) * 0.5);
-            ctx.fillStyle = `hsla(${this.colorHue}, ${this.saturation}%, ${lightness}%, ${alpha})`;
-            ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
-        };
 
-
-        function drawLemmingSprite(lemming, ctx) { /* ... same ... */ }
+        function drawLemmingSprite(lemming, ctx) {
+            const stateSprites = lemmingSprites[lemming.state];
+            if (!stateSprites) {
+                ctx.fillStyle = 'magenta'; 
+                ctx.fillRect(lemming.x, lemming.y, LEMMING_WIDTH, LEMMING_HEIGHT);
+                return;
+            }
+            const frameIndex = lemming.spriteFrame % stateSprites.length;
+            const spriteFrameData = stateSprites[frameIndex];
+            if (!spriteFrameData) {
+                ctx.fillStyle = 'cyan';
+                ctx.fillRect(lemming.x, lemming.y, LEMMING_WIDTH, LEMMING_HEIGHT);
+                return;
+            }
+            const spritePixelHeight = spriteFrameData.length;
+            const spritePixelWidth = spriteFrameData[0] ? spriteFrameData[0].length : 0;
+            for (let r = 0; r < spritePixelHeight; r++) {
+                for (let c = 0; c < spritePixelWidth; c++) {
+                    const pixelColorCode = spriteFrameData[r][c];
+                    const color = lemmingColorPalette[pixelColorCode];
+                    if (color) {
+                        const drawXOffset = lemming.dx >= 0 ? c : (spritePixelWidth - 1 - c);
+                        ctx.fillStyle = color;
+                        ctx.fillRect(
+                            Math.floor(lemming.x + drawXOffset * PIXEL_SCALE),
+                            Math.floor(lemming.y + r * PIXEL_SCALE),
+                            PIXEL_SCALE, PIXEL_SCALE
+                        );
+                    }
+                }
+            }
+        }
 
         function createLemming(startX, startY) {
             return {
@@ -150,18 +205,35 @@
                 spriteFrame: 0, animationTimer: 0,
                 id: Date.now() + Math.random() + startX,
                 assignedSkill: null, skillTimer: 0, actionCounter: 0,
-                digProgress: 0, // For Digger: progress within the current TILE_SIZE segment
-                currentDigTileCol: -1, // For Digger: column of the tile being dug
-                currentDigTileRow: -1, // For Digger: row of the tile being dug
+                digProgress: 0, currentDigTileCol: -1, currentDigTileRow: -1,
 
                 update: function(deltaTime, map) {
                     if (this.isDead || this.isRescued) return;
                     let skillManagesMovement = false;
 
+                    // if (lemmings.length > 0 && this.id === lemmings[0].id) { // DEBUG LOGS
+                    //      console.log(`L[${this.id.toString().slice(-4)}] START: x=${this.x.toFixed(1)},y=${this.y.toFixed(1)},dx=${this.dx.toFixed(1)},dy=${this.dy.toFixed(1)},st=${this.state},onG=${this.onGround},isF=${this.isFalling}`);
+                    // }
+
                     switch (this.state) {
                         case 'blocker': skillManagesMovement = true; return;
-                        case 'bomber': /* ... same ... */ break;
-                        case 'builder': /* ... same ... */ break;
+                        case 'bomber':
+                            this.skillTimer -= deltaTime; this.animationTimer += deltaTime;
+                            if (this.skillTimer <= 0) { this.explode(map); return; }
+                            break; 
+                        case 'builder':
+                            if (this.actionCounter <= 0) { this.changeState('walking'); break; }
+                            this.skillTimer -= deltaTime;
+                            if (this.skillTimer <= 0) {
+                                if (this.buildStep(map)) {
+                                    this.actionCounter--; this.skillTimer = 1200;
+                                    this.x += this.dx * TILE_SIZE * 0.75; this.y -= TILE_SIZE * 0.25;
+                                    skillManagesMovement = true; 
+                                } else { this.dx *= -1; this.changeState('walking'); }
+                            } else {
+                                skillManagesMovement = true; 
+                            }
+                            break;
                         case 'digger':
                             const digStatus = this.performDigAction(map, deltaTime);
                             switch (digStatus) {
@@ -175,14 +247,25 @@
                             this.isFalling = false; this.onGround = true; 
                             skillManagesMovement = true; 
                             return; 
-                        case 'miner': /* ... same simplified logic for now ... */
+                        case 'miner': 
                             this.skillTimer -= deltaTime;
-                            if (this.skillTimer <= 0) { this.dx *= -1; this.changeState('walking');}
-                            skillManagesMovement = true; return;
-                        case 'basher': /* ... same simplified logic for now ... */
+                            if (this.skillTimer <= 0) {
+                                if (this.dig && typeof this.dig === 'function' && this.dig(map, this.dx > 0 ? 1 : -1, 1)) {
+                                    this.x += (this.dx > 0 ? 1 : -1) * TILE_SIZE / 3; this.y += TILE_SIZE / 3;
+                                    this.skillTimer = 800;
+                                    if (this.actionCounter && --this.actionCounter <= 0) this.changeState('walking');
+                                } else { this.dx *= -1; this.changeState('walking'); }
+                            }
+                            skillManagesMovement = true; return; 
+                        case 'basher': 
                             this.skillTimer -= deltaTime;
-                            if (this.skillTimer <= 0) { this.dx *= -1; this.changeState('walking');}
-                            skillManagesMovement = true; return;
+                            if (this.skillTimer <= 0) {
+                                if (this.dig && typeof this.dig === 'function' && this.dig(map, this.dx > 0 ? 1 : -1, 0)) {
+                                    this.x += (this.dx > 0 ? 1 : -1) * TILE_SIZE / 3; this.skillTimer = 600;
+                                     if (this.actionCounter && --this.actionCounter <= 0) this.changeState('walking');
+                                } else { this.dx *= -1; this.changeState('walking');}
+                            }
+                            skillManagesMovement = true; return; 
                     }
 
                     if (!skillManagesMovement) {
@@ -239,6 +322,10 @@
                         }
                     }
                     
+                    // if (lemmings.length > 0 && this.id === lemmings[0].id) { // DEBUG LOGS
+                    //      console.log(`L[${this.id.toString().slice(-4)}] END:   x=${this.x.toFixed(1)},y=${this.y.toFixed(1)},dx=${this.dx.toFixed(1)},dy=${this.dy.toFixed(1)},st=${this.state},onG=${this.onGround},isF=${this.isFalling}`);
+                    // }
+
                     if (this.y > canvas.height + this.height * 2 || this.x < -this.width || this.x > canvas.width) { this.die("Lost..."); return; }
                     const exitRect = { x: levelData.exitPoint.x * TILE_SIZE, y: levelData.exitPoint.y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE };
                     if (this.x + this.width > exitRect.x && this.x < exitRect.x + exitRect.width &&
@@ -246,10 +333,16 @@
 
                     this.animationTimer += deltaTime;
                     let animSpeed = 200; let numFrames = 1;
-                    if (lemmingSprites[this.state]) numFrames = lemmingSprites[this.state].length;
+                    if (lemmingSprites[this.state] && lemmingSprites[this.state].length > 0) {
+                        numFrames = lemmingSprites[this.state].length;
+                    } else if (this.state === 'walking' || this.state === 'falling' || this.state === 'floater') {
+                        numFrames = lemmingSprites.walking ? lemmingSprites.walking.length : 1; // Fallback if specific state sprite undefined
+                    }
+                    
                     if (this.state === 'walking' || this.state === 'floater') animSpeed = (this.state === 'falling' && !this.onGround) ? 300 : 150;
                     else if (this.state === 'bomber') animSpeed = 100;
                     else if (this.state === 'digger' || this.state === 'miner' || this.state === 'basher') animSpeed = 250;
+
                     if (numFrames > 0 && this.animationTimer > animSpeed) {
                         this.spriteFrame = (this.spriteFrame + 1) % numFrames;
                         this.animationTimer = 0;
@@ -257,26 +350,40 @@
                 },
 
                 draw: function(ctx) {
-                    if (this.isDead || this.isRescued) { /* ... death visuals ... */ return; }
-                    
+                    if (this.isDead || this.isRescued) {
+                        if (this.isDead && this.state === 'dead_splat') {
+                            ctx.fillStyle = 'darkred'; ctx.beginPath();
+                            ctx.ellipse(this.x + this.width / 2, this.y + this.height - 3, this.width / 1.5, 3, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                        } else if (this.isDead && this.state === 'dead_explode') {
+                            ctx.fillStyle = 'orange'; ctx.beginPath();
+                            ctx.ellipse(this.x + this.width / 2, this.y + this.height/2, this.width * 0.8, this.height*0.8, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        return;
+                    }
                     drawLemmingSprite(this, ctx);
-
-                    // Visual for Digger's progress
                     if (this.state === 'digger' && this.digProgress > 0 && this.currentDigTileCol !== -1 && this.currentDigTileRow !== -1) {
                         const tileX = this.currentDigTileCol * TILE_SIZE;
                         const tileY = this.currentDigTileRow * TILE_SIZE;
-                        const holeHeight = this.digProgress * (TILE_SIZE / TILE_SIZE); // digProgress is already in pixels up to TILE_SIZE
-
-                        ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; // Semi-transparent black for the hole
+                        const holeHeight = this.digProgress; 
+                        ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; 
                         ctx.fillRect(tileX, tileY, TILE_SIZE, Math.min(holeHeight, TILE_SIZE));
                     }
-
-
                     if (this === highlightedLemming || (this === lastInteractionLemming && interactionFeedbackTimer > 0)) {
-                        /* ... highlight logic ... */
+                        ctx.strokeStyle = (this === lastInteractionLemming && interactionFeedbackTimer > 0) ? 'cyan' : 'yellow';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(this.x -1, this.y -1, LEMMING_WIDTH + 2, LEMMING_HEIGHT + 2);
+                        ctx.lineWidth = 1;
                     }
-                    if (this.state === 'bomber') { /* ... timer text ... */ }
-                    if (this.state === 'builder' && this.actionCounter > 0) { /* ... counter text ... */ }
+                    if (this.state === 'bomber') {
+                        ctx.fillStyle = 'white'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+                        ctx.fillText(Math.ceil(this.skillTimer / 1000), this.x + this.width / 2, this.y - LEMMING_HEIGHT/2 - 2);
+                    }
+                    if (this.state === 'builder' && this.actionCounter > 0) {
+                        ctx.fillStyle = 'black'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+                        ctx.fillText(this.actionCounter, this.x + this.width / 2, this.y - LEMMING_HEIGHT/2 - 2);
+                    }
                 },
                 changeState: function(newState) {
                     if (this.state === newState && newState !== 'bomber') return;
@@ -290,10 +397,7 @@
                         case 'builder': this.actionCounter = 12; this.skillTimer = 200; break;
                         case 'digger':
                             this.actionCounter = TILE_SIZE * 3.5; this.dx = 0; this.dy = 0;
-                            this.digProgress = 0; 
-                            // Set currentDigTileCol and currentDigTileRow when digging starts in performDigAction
-                            this.currentDigTileCol = -1; 
-                            this.currentDigTileRow = -1;
+                            this.digProgress = 0; this.currentDigTileCol = -1; this.currentDigTileRow = -1;
                             this.isFalling = false; this.onGround = true;
                             break;
                         case 'miner': case 'basher':
@@ -307,71 +411,153 @@
                             break;
                     }
                 },
-                assignSkill: function(skillName) { /* ... same ... */ },
-                dig: function(map, offsetXTile, offsetYTile) { /* ... same generic dig for miner/basher ... */ },
+                assignSkill: function(skillName) {
+                    if (!(this.state === 'walking' || this.state === 'falling' || this.state === 'floater')) {
+                        console.warn(`Lemming ${this.id.toString().slice(-4)}: Cannot assign skill. Invalid state: ${this.state}.`); return false;
+                    }
+                    const skillCount = levelData.availableSkills[skillName];
+                    if (!(skillCount > 0 || skillCount === Infinity)) {
+                        console.warn(`Lemming ${this.id.toString().slice(-4)}: Skill '${skillName}' not available (${skillCount}).`); return false;
+                    }
+                    this.changeState(skillName); this.assignedSkill = skillName;
+                    if (skillCount !== Infinity) levelData.availableSkills[skillName]--;
+                    updateSkillButtons(); return true;
+                },
+                dig: function(map, offsetXTile, offsetYTile) {
+                    // console.log(`Generic 'dig' called by ${this.state}.`);
+                    let success = false; let targetPixelX, targetPixelY;
+                    const centerX = this.x + this.width / 2;
+                    const feetY = this.y + this.height -1; 
+                    if (this.state === 'miner') {
+                        targetPixelX = this.x + (this.dx > 0 ? this.width : 0) + (this.dx * TILE_SIZE * 0.6);
+                        targetPixelY = this.y + this.height + (TILE_SIZE * 0.4);
+                    } else if (this.state === 'basher') {
+                        targetPixelX = this.x + (this.dx > 0 ? this.width + 2 : -2 - TILE_SIZE/2) + (TILE_SIZE/2);
+                        targetPixelY = this.y + this.height / 2;
+                    } else { return false; }
+                    const tileToDig = getTileAt(targetPixelX, targetPixelY, map);
+                    if (tileToDig === '2') { setTileAt(targetPixelX, targetPixelY, '0', map); success = true;
+                    } else if (tileToDig === '1' || tileToDig === 'E' || tileToDig === 'X') { success = false; 
+                    } else if (tileToDig === '0') { success = false; }
+                    return success;
+                },
                 performDigAction: function(map, deltaTime) {
                     if (this.actionCounter <= 0) return 'skill_depleted';
-                    const digSpeed = WALK_SPEED * 0.65; // pixels per second
+                    const digSpeed = WALK_SPEED * 0.65;
                     const digAmountThisFrame = digSpeed * (deltaTime / 1000);
-                    
                     const digCenterX = this.x + this.width / 2;
-
-                    if (this.currentDigTileCol === -1) { // Initialize dig target tile
+                    if (this.currentDigTileCol === -1) {
                         this.currentDigTileCol = Math.floor(digCenterX / TILE_SIZE);
-                        this.currentDigTileRow = Math.floor((this.y + this.height) / TILE_SIZE); // Tile lemming is standing on/just above
-                        this.digProgress = 0; // Reset progress for this new tile
+                        this.currentDigTileRow = Math.floor((this.y + this.height) / TILE_SIZE);
+                        this.digProgress = 0; 
                     }
-                    
-                    // Point where digging is happening, relative to the top of the currentDigTileRow
-                    const diggingPointInTileY = this.digProgress; 
-                    const absoluteDiggingPointY = this.currentDigTileRow * TILE_SIZE + diggingPointInTileY;
-
-
-                    const tileCharAhead = getTileAt(this.currentDigTileCol * TILE_SIZE + TILE_SIZE/2, absoluteDiggingPointY + 1, map);
-                    if (tileCharAhead === '1' || tileCharAhead === 'E' || tileCharAhead === 'X' || tileCharAhead === undefined) {
-                        return 'blocked';
-                    }
-
-                    this.digProgress += digAmountThisFrame;
-                    this.y += digAmountThisFrame; // Lemming moves down with the digging
-                    this.actionCounter -= digAmountThisFrame;
-
+                    const diggingPointY = this.currentDigTileRow * TILE_SIZE + this.digProgress;
+                    const tileCharAhead = getTileAt(this.currentDigTileCol * TILE_SIZE + TILE_SIZE/2, diggingPointY + 1, map);
+                    if (tileCharAhead === '1' || tileCharAhead === 'E' || tileCharAhead === 'X' || tileCharAhead === undefined) return 'blocked';
+                    this.digProgress += digAmountThisFrame; this.y += digAmountThisFrame; this.actionCounter -= digAmountThisFrame;
                     if (Math.random() < 0.8) {
                         for (let p = 0; p < Math.ceil(deltaTime/16); p++) {
-                            particles.push(createDigParticle(
-                                digCenterX + (Math.random() - 0.5) * (this.width * 0.6),
-                                this.y + this.height - (this.digProgress / 2) + (Math.random() * 4 - 2) 
-                            ));
+                            particles.push(createDigParticle(digCenterX + (Math.random() - 0.5) * (this.width * 0.6), this.y + this.height - (this.digProgress / 2) + (Math.random() * 4 - 2)));
                         }
                     }
-
                     if (this.digProgress >= TILE_SIZE) {
-                        const pixelXToClear = this.currentDigTileCol * TILE_SIZE + TILE_SIZE / 2;
-                        const pixelYToClear = this.currentDigTileRow * TILE_SIZE + TILE_SIZE / 2;
-                        if (getTileAt(pixelXToClear, pixelYToClear, map) === '2') {
-                             setTileAt(pixelXToClear, pixelYToClear, '0', map);
-                        }
-                        this.digProgress = 0; // Reset for the next potential segment below
-                        this.currentDigTileRow++; // Move to the next row for tracking
-                        // this.currentDigTileCol remains the same unless a new dig action is initiated elsewhere
-
-                        const groundDirectlyBelow = getTileAt(digCenterX, this.y + this.height + 1, map);
-                        if (groundDirectlyBelow === '0') return 'dug_through_to_air';
+                        const px = this.currentDigTileCol * TILE_SIZE + TILE_SIZE / 2, py = this.currentDigTileRow * TILE_SIZE + TILE_SIZE / 2;
+                        if (getTileAt(px, py, map) === '2') setTileAt(px, py, '0', map);
+                        this.digProgress = 0; this.currentDigTileRow++;
+                        if (getTileAt(digCenterX, this.y + this.height + 1, map) === '0') return 'dug_through_to_air';
                         return 'finished_segment';
                     }
                     if (this.actionCounter <= 0) return 'skill_depleted_mid_segment';
                     return 'digging';
                 },
-                buildStep: function(map) { /* ... same ... */ },
-                explode: function(map) { /* ... same ... */ },
-                die: function(reason) { /* ... same ... */ },
-                rescue: function() { /* ... same ... */ }
+                buildStep: function(map) {
+                    const frontX = this.x + (this.dx > 0 ? this.width : 0);
+                    const stepX = frontX + (this.dx > 0 ? 0 : -TILE_SIZE);
+                    const stepY = this.y + this.height - TILE_SIZE;
+                    const targetTilePixelX = stepX + TILE_SIZE / 2;
+                    const targetTilePixelY = stepY + TILE_SIZE / 2;
+                    if (getTileAt(targetTilePixelX, targetTilePixelY, map) === '0') {
+                        let canPlace = true;
+                        for(const otherLem of lemmings) {
+                            if (otherLem === this || otherLem.isDead || otherLem.isRescued) continue;
+                            if (targetTilePixelX > otherLem.x && targetTilePixelX < otherLem.x + otherLem.width &&
+                                targetTilePixelY > otherLem.y && targetTilePixelY < otherLem.y + otherLem.height) {
+                                canPlace = false; break;
+                            }
+                        }
+                        if (canPlace && setTileAt(targetTilePixelX, targetTilePixelY, '2', map)) {
+                            // Lemming moves onto new step (handled in main builder logic to keep this function simple)
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                explode: function(map) {
+                    console.log(`Lemming ${this.id.toString().slice(-4)} goes BOOM!`);
+                    this.isDead = true; this.state = 'dead_explode';
+                    const explosionRadiusPixels = TILE_SIZE * 2.5;
+                    const explosionCenterX = this.x + this.width / 2;
+                    const explosionCenterY = this.y + this.height / 2;
+                    for (let r = -Math.ceil(explosionRadiusPixels / TILE_SIZE); r <= Math.ceil(explosionRadiusPixels / TILE_SIZE); r++) {
+                        for (let c = -Math.ceil(explosionRadiusPixels / TILE_SIZE); c <= Math.ceil(explosionRadiusPixels / TILE_SIZE); c++) {
+                            const checkX = explosionCenterX + c * TILE_SIZE; const checkY = explosionCenterY + r * TILE_SIZE;
+                            const distSq = Math.pow(checkX - explosionCenterX, 2) + Math.pow(checkY - explosionCenterY, 2);
+                            if (distSq < explosionRadiusPixels * explosionRadiusPixels) {
+                                const tileType = getTileAt(checkX, checkY, map);
+                                if (tileType === '1' || tileType === '2' || tileType === 'B') {
+                                    setTileAt(checkX, checkY, '0', map);
+                                }
+                                lemmings.forEach(lem => {
+                                    if (lem === this || lem.isDead || lem.isRescued) return;
+                                    const lemCenterX = lem.x + lem.width / 2; const lemCenterY = lem.y + lem.height / 2;
+                                    const distToLemSq = Math.pow(lemCenterX - explosionCenterX, 2) + Math.pow(lemCenterY - explosionCenterY, 2);
+                                    if (distToLemSq < Math.pow(explosionRadiusPixels * 0.8, 2)) {
+                                        lem.die("Caught in explosion!");
+                                    }
+                                });
+                            }
+                        }
+                    }
+                },
+                die: function(reason) {
+                    if (this.isDead) return;
+                    this.isDead = true;
+                    if (reason === "Splat!") this.state = 'dead_splat';
+                    else if (reason === "Caught in explosion!") this.state = 'dead_explode_victim';
+                    else this.state = 'dead';
+                    console.log(`Lemming ${this.id.toString().slice(-4)} ${this.state}: ${reason}`);
+                },
+                rescue: function() {
+                    if (this.isRescued || this.isDead) return;
+                    this.isRescued = true; this.state = 'rescued';
+                    lemmingsRescued++;
+                    console.log(`Lemming ${this.id.toString().slice(-4)} rescued!`);
+                }
             };
         }
 
-        function getLemmingBlockerAtPixel(pixelX, pixelY) { /* ... same ... */ }
-        let lastTime = 0;
-        function gameLoop(timestamp) { /* ... same ... */ }
+        function getLemmingBlockerAtPixel(pixelX, pixelY) {
+            for (const lem of lemmings) {
+                if (!lem.isDead && !lem.isRescued && lem.state === 'blocker') {
+                    if (pixelX >= lem.x && pixelX <= lem.x + lem.width &&
+                        pixelY >= lem.y && pixelY <= lem.y + lem.height) {
+                        return lem;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        let lastTimestamp = 0; // Renamed from lastTime to avoid conflict
+        function gameLoop(timestamp) {
+            const deltaTime = (timestamp - lastTimestamp) || 16.67; 
+            lastTimestamp = timestamp; // Use lastTimestamp
+            if (!gamePaused && currentGameState === GAME_STATE.PLAYING) {
+                update(deltaTime);
+                render(deltaTime);
+            }
+            requestAnimationFrame(gameLoop);
+        }
         
         function update(deltaTime) {
             if (deltaTime <= 0 || deltaTime > 500) {
@@ -386,33 +572,21 @@
             let activeLemmingsCount = 0;
             for(const lem of lemmings) { if(!lem.isDead && !lem.isRescued) activeLemmingsCount++; }
 
-            // --- Win/Loss Condition Logic ---
             let levelShouldEnd = false;
             let playerWon = false;
 
             if (gameTimeRemaining <= 0) {
                 levelShouldEnd = true;
-                console.log("Level end: Time up.");
             } else if (levelData.lemmingsToRelease && lemmingsOut >= levelData.lemmingsToRelease && activeLemmingsCount === 0) {
-                // All lemmings released and all are resolved (dead or rescued)
                 levelShouldEnd = true;
-                console.log("Level end: All lemmings processed.");
             }
 
             if (levelShouldEnd) {
-                if (lemmingsRescued >= lemmingsToSave) {
-                    playerWon = true;
-                    console.log("Player Won! Saved:", lemmingsRescued, "Needed:", lemmingsToSave);
-                    // Future: Add bonus calculation here
-                } else {
-                    playerWon = false;
-                    console.log("Player Lost. Saved:", lemmingsRescued, "Needed:", lemmingsToSave);
-                }
+                playerWon = (lemmingsRescued >= lemmingsToSave);
                 endLevel(playerWon);
-                return; // Stop further updates this frame as level is ending
+                return; 
             }
 
-            // Lemming Release
             if (levelData.lemmingsToRelease && lemmingsOut < levelData.lemmingsToRelease && currentTime - lastReleaseTime > (levelData.releaseRate || 1000)) {
                 const entryX = levelData.entryPoint.x * TILE_SIZE + (TILE_SIZE - LEMMING_WIDTH) / 2;
                 const entryY = levelData.entryPoint.y * TILE_SIZE;
@@ -421,12 +595,10 @@
                 lastReleaseTime = currentTime;
             }
 
-            // Update Lemmings
             for (let i = lemmings.length - 1; i >= 0; i--) {
                 lemmings[i].update(deltaTime, levelData.map);
             }
 
-            // Update Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 particles[i].update(deltaTime);
                 if (particles[i].life <= 0) {
@@ -436,33 +608,207 @@
             updateGameInfo();
         }
 
-        function render(deltaTime) { /* ... same ... */ }
-        function getTouchPos(canvasDom, touchEvent) { /* ... same ... */ }
-        function handleCanvasTap(event) { /* ... same ... */ }
+        function render(deltaTime) {
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (levelData.map) {
+                for (let y = 0; y < levelData.map.length; y++) {
+                    for (let xPos = 0; xPos < levelData.map[y].length; xPos++) {
+                        const tile = levelData.map[y][xPos];
+                        if (tile === '1') { ctx.fillStyle = 'brown';}
+                        else if (tile === '2') { ctx.fillStyle = 'sandybrown';}
+                        else if (tile === 'E') { ctx.fillStyle = 'blue';}
+                        else if (tile === 'X') { ctx.fillStyle = 'green';}
+                        else { continue; } 
+                        ctx.fillRect(xPos * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+            for (const lem of lemmings) { lem.draw(ctx); }
+            for (const particle of particles) { particle.draw(ctx); }
+            
+            if (tapVisualTimer > 0) {
+                tapVisualTimer -= deltaTime;
+                if (lastTapPos) {
+                    const radius = 15 * Math.max(0, (tapVisualTimer / TAP_VISUAL_DURATION));
+                    ctx.strokeStyle = 'rgba(255, 255, 0, 0.7)'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(lastTapPos.x, lastTapPos.y, radius, 0, Math.PI * 2); ctx.stroke();
+                    ctx.lineWidth = 1;
+                }
+            } else { lastTapPos = null; }
+
+            if (interactionFeedbackTimer > 0) {
+                interactionFeedbackTimer -= deltaTime;
+                if (interactionFeedbackTimer <= 0) { lastInteractionLemming = null; }
+            }
+        }
+
+        function getTouchPos(canvasDom, touchEvent) {
+            const rect = canvasDom.getBoundingClientRect();
+            const scaleX = canvasDom.width / rect.width;
+            const scaleY = canvasDom.height / rect.height;
+            return {
+                x: (touchEvent.touches[0].clientX - rect.left) * scaleX,
+                y: (touchEvent.touches[0].clientY - rect.top) * scaleY
+            };
+        }
+        function handleCanvasTap(event) {
+            event.preventDefault();
+            const pos = getTouchPos(canvas, event);
+            lastTapPos = pos; tapVisualTimer = TAP_VISUAL_DURATION;
+            let lemmingWasTapped = false;
+
+            for (let i = lemmings.length - 1; i >= 0; i--) {
+                const lem = lemmings[i];
+                if (lem.isDead || lem.isRescued) continue;
+                if (pos.x >= lem.x && pos.x <= lem.x + lem.width &&
+                    pos.y >= lem.y && pos.y <= lem.y + lem.height) {
+                    lemmingWasTapped = true;
+                    if (selectedSkill) {
+                        if (lem.assignSkill(selectedSkill)) {
+                            lastInteractionLemming = lem; interactionFeedbackTimer = INTERACTION_FEEDBACK_DURATION;
+                            highlightedLemming = null; 
+                        } else { highlightedLemming = lem; lastInteractionLemming = null; }
+                    } else { highlightedLemming = lem; lastInteractionLemming = null; }
+                    break; 
+                }
+            }
+            if (!lemmingWasTapped) { highlightedLemming = null; lastInteractionLemming = null; }
+        }
         canvas.addEventListener('touchstart', handleCanvasTap, { passive: false });
         
-        function setupSkillButtons() { /* ... (Full implementation from previous correct version) ... */ }
-        function updateSkillButtons() { /* ... (Full implementation from previous correct version) ... */ }
-        function updateGameInfo() { /* ... (Full implementation from previous correct version) ... */ }
-        function showLoadingScreen(show) { /* ... (Full implementation from previous correct version) ... */ }
-        function simulateLoading() { /* ... (Full implementation from previous correct version) ... */ }
-        function startLevel(levelIndex) { /* ... (Full implementation from previous correct version, uses gameLevels) ... */ }
-        function endLevel(success) { /* ... (Full implementation from previous correct version) ... */ }
+        function setupSkillButtons() {
+            uiControls.innerHTML = '';
+            if (!levelData || !levelData.availableSkills) return;
+            const skills = Object.keys(levelData.availableSkills);
+            skills.forEach(skillName => {
+                const button = document.createElement('button');
+                button.classList.add('skillButton'); button.id = `${skillName}Btn`;
+                button.dataset.skill = skillName;
+                const count = levelData.availableSkills[skillName] === undefined ? 0 : levelData.availableSkills[skillName];
+                button.textContent = `${skillName.charAt(0).toUpperCase() + skillName.slice(1)} (${count === Infinity ? '∞' : count})`;
+                 if (count === 0) button.disabled = true;
+                button.addEventListener('click', () => {
+                    if (selectedSkill === skillName) {
+                        selectedSkill = null; button.classList.remove('active');
+                    } else {
+                        document.querySelector('.skillButton.active')?.classList.remove('active');
+                        selectedSkill = skillName; button.classList.add('active');
+                    }
+                    updateSkillButtons(); // Update buttons after selection change
+                });
+                uiControls.appendChild(button);
+            });
+        }
         
-        function init() {
-            // Ensure all global DOM elements are fetched
+        function updateSkillButtons() {
+            const buttons = document.querySelectorAll('.skillButton');
+            buttons.forEach(button => {
+                const skillName = button.dataset.skill;
+                if (levelData.availableSkills && levelData.availableSkills[skillName] !== undefined) {
+                    const count = levelData.availableSkills[skillName];
+                    button.textContent = `${skillName.charAt(0).toUpperCase() + skillName.slice(1)} (${count === Infinity ? '∞' : count})`;
+                    if (count === 0 && selectedSkill !== skillName) {
+                        button.disabled = true;
+                    } else {
+                        button.disabled = false;
+                    }
+                } else { 
+                    button.textContent = `${skillName.charAt(0).toUpperCase() + skillName.slice(1)} (N/A)`;
+                    button.disabled = true;
+                }
+            });
+        }
+
+        function updateGameInfo() {
+            const totalLemmingsInLevel = levelData.lemmingsToRelease || 0;
+            let activeLemmings = 0;
+            lemmings.forEach(l => { if (!l.isDead && !l.isRescued) activeLemmings++;});
+            
             const lemmingsCountEl = document.getElementById('lemmingsCount');
             const lemmingsSavedEl = document.getElementById('lemmingsSaved');
             const timeLeftEl = document.getElementById('timeLeft');
             const levelNameEl = document.getElementById('levelName');
+
+            if(lemmingsCountEl) lemmingsCountEl.textContent = `Active: ${activeLemmings}`;
+            if(lemmingsSavedEl) lemmingsSavedEl.textContent = `Saved: ${lemmingsRescued} / ${lemmingsToSave || '?'}`;
+            if(timeLeftEl) timeLeftEl.textContent = `Time: ${Math.max(0, Math.ceil(gameTimeRemaining / 1000))}`;
+            if(levelNameEl) levelNameEl.textContent = `Level: ${levelData.name || (currentLevelIndex + 1)}`;
+        }
+
+        function showLoadingScreen(show) {
             const loadingScreen = document.getElementById('loadingScreen');
+            if(loadingScreen) loadingScreen.style.display = show ? 'flex' : 'none';
+        }
+        
+        function simulateLoading() {
+            showLoadingScreen(true);
+            console.log("Simulating asset loading...");
+            setTimeout(() => {
+                showLoadingScreen(false);
+                currentGameState = GAME_STATE.PLAYING;
+                startLevel(currentLevelIndex);
+            }, 500);
+        }
 
+        function startLevel(levelIndex) {
+            if (typeof gameLevels === 'undefined' || !gameLevels || gameLevels.length === 0) {
+                console.error("gameLevels array is not defined or empty! Make sure levels.js is loaded and defines gameLevels.");
+                alert("Error: Level data not found!");
+                return;
+            }
+            if (levelIndex >= gameLevels.length) {
+                currentGameState = GAME_STATE.MENU; 
+                ctx.fillStyle = 'gold'; ctx.fillRect(0,0,canvas.width, canvas.height);
+                ctx.fillStyle = 'black'; ctx.font = '30px Arial'; ctx.textAlign = 'center';
+                ctx.fillText("ALL LEVELS COMPLETE!", canvas.width/2, canvas.height/2);
+                return;
+            }
+            currentLevelIndex = levelIndex;
+            levelData = JSON.parse(JSON.stringify(gameLevels[currentLevelIndex]));
 
+            const mapWidth = levelData.map[0].length * TILE_SIZE;
+            const mapHeight = levelData.map.length * TILE_SIZE;
+            canvas.width = mapWidth; canvas.height = mapHeight;
+
+            lemmings = []; particles = []; 
+            lemmingsOut = 0; lemmingsRescued = 0;
+            lemmingsToSave = levelData.requiredToSave || 0; // Ensure lemmingsToSave is a number
+            gameTimeRemaining = (levelData.time || 0) * 1000;
+            releaseRate = levelData.releaseRate || 1000;
+            lastReleaseTime = performance.now();
+            selectedSkill = null; gamePaused = false;
+            highlightedLemming = null; lastInteractionLemming = null;
+
+            setupSkillButtons();
+            updateGameInfo(); 
+            currentGameState = GAME_STATE.PLAYING;
+            console.log(`Starting Level: ${levelData.name} (Req: ${lemmingsToSave})`);
+        }
+
+        function endLevel(success) {
+            gamePaused = true;
+            currentGameState = success ? GAME_STATE.LEVEL_COMPLETE : GAME_STATE.GAME_OVER;
+            selectedSkill = null; highlightedLemming = null; lastInteractionLemming = null;
+            document.querySelector('.skillButton.active')?.classList.remove('active');
+            setTimeout(() => {
+                const message = success ? 
+                    `Level Complete!\nSaved: ${lemmingsRescued}/${lemmingsToSave}` :
+                    `Level Failed.\nSaved: ${lemmingsRescued}, Needed: ${lemmingsToSave}`;
+                alert(message);
+                if (success) { currentLevelIndex++; startLevel(currentLevelIndex);
+                } else { startLevel(currentLevelIndex); }
+            }, 1000);
+        }
+        
+        function init() {
+            const loadingScreen = document.getElementById('loadingScreen'); // Local const for init
             if (typeof gameLevels === 'undefined') {
                 console.error("gameLevels is not defined. Ensure levels.js is loaded before this script.");
                 alert("Error: Level data not found! Check console.");
-                if(loadingScreen) loadingScreen.innerHTML = "Error loading levels!";
-                if(showLoadingScreen) showLoadingScreen(true); 
+                if(loadingScreen) loadingScreen.innerHTML = "Error loading levels!"; 
+                if(showLoadingScreen) showLoadingScreen(true); // showLoadingScreen needs loadingScreenEl to be global or passed
                 return;
             }
             lastReleaseTime = performance.now();
