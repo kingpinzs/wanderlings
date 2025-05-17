@@ -25,13 +25,13 @@ const gameLevels = [
         lemmingsToRelease: 3,
         requiredToSave: 2,
         releaseRate: 3000,
-        entryPoint: { x: 1, y: 2 }, // Start on the ground
-        exitPoint: { x: 10, y: 2 },
+        entryPoint: { x: 1, y: 1 }, // Start on the ground
+        exitPoint: { x: 10, y: 1 },
         map: [
             //012345678901
             "111111111111", // 0
-            "100000000001", // 1
-            "1E111111111X1", // 2 (Lemmings walk on this solid line)
+            "1E00000000X1", // 1
+            "1111111111111", // 2 (Lemmings walk on this solid line)
             "111111111111", // 3
         ],
         availableSkills: {
@@ -46,16 +46,15 @@ const gameLevels = [
         requiredToSave: 3,
         releaseRate: 2500,
         entryPoint: { x: 1, y: 1 }, // Start on a platform
-        exitPoint: { x: 1, y: 5 },  // Exit directly below
+        exitPoint: { x: 1, y: 4},  // Exit directly below
         map: [
             //0123
             "1111", // 0
             "1E01", // 1 (Platform)
             "1221", // 2 (Diggable section)
             "1001", // 3 (Empty space to fall through)
-            "1001", // 4 (Empty space)
-            "1X01", // 5 (Exit platform)
-            "1111", // 6
+            "1X01", // 4 (Exit platform)
+            "1111", // 5
         ],
         availableSkills: {
             'digger': 3,
