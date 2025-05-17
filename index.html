@@ -576,6 +576,9 @@
             const currentTime = performance.now();
 
             gameTimeRemaining -= dt;
+            let levelShouldEnd = false;
+            let playerWon = false;
+
             if (gameTimeRemaining <= 0) {
                 levelShouldEnd = true;
             } else if (levelData.lemmingsToRelease && lemmingsOut >= levelData.lemmingsToRelease && activeLemmingsCount === 0) {
